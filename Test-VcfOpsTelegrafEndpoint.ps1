@@ -115,11 +115,36 @@ foreach ($p in @('C:\VMware\UCP', 'C:\Program Files\VMware', 'C:\ProgramData\VMw
         catch { $results.Add((New-Result 'Path Exists' 'WARN' "$p exists but could not enumerate" @{ Path = $p; Error = $_.Exception.Message })) }
     }
 }
+# Firewall rules matching required ports (informational)
 try {
-    $fw = Get-NetFirewallProfile | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction
-    $results.Add((New-Result 'Firewall Profiles' 'INFO' 'Captured firewall profile settings' @{ Profiles = @($fw) }))
+    $ports = 443,8443,4505,4506
+
+    $fwRules = Get-NetFirewallRule -PolicyStore ActiveStore |
+    ForEach-Object {
+        $rule = $_
+        $portFilters = $rule | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue
+        foreach ($pf in $portFilters) {
+            if ($pf.Protocol -eq 'TCP' -and (($pf.LocalPort -in $ports) -or ($pf.RemotePort -in $ports))) {
+                [pscustomobject]@{
+                    DisplayName = $rule.DisplayName
+                    Name        = $rule.Name
+                    Enabled     = $rule.Enabled
+                    Direction   = $rule.Direction
+                    Action      = $rule.Action
+                    Profile     = ($rule.Profile -join ',')
+                    Protocol    = $pf.Protocol
+                    LocalPort   = $pf.LocalPort
+                    RemotePort  = $pf.RemotePort
+                }
+            }
+        }
+    } | Sort-Object Direction, Action, LocalPort, RemotePort, DisplayName
+
+    $results.Add((New-Result 'Firewall Port Rule Matches' 'INFO' 'Captured firewall rules matching required ports (TCP 443/8443/4505/4506)' @{ Rules = @($fwRules) }))
 }
-catch { $results.Add((New-Result 'Firewall Profiles' 'WARN' 'Unable to read firewall profile settings' @{ Error = $_.Exception.Message })) }
+catch {
+    $results.Add((New-Result 'Firewall Port Rule Matches' 'WARN' 'Unable to query firewall rules matching required ports' @{ Error = $_.Exception.Message }))
+}
 
 $dnsFail = $results | Where-Object { $_.Check -eq 'DNS Resolution' -and $_.Status -eq 'FAIL' }
 $tcpFail = $results | Where-Object { $_.Check -like 'TCP *' -and $_.Status -eq 'FAIL' }
