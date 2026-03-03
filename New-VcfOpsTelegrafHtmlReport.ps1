@@ -8,14 +8,14 @@ $ErrorActionPreference = 'Stop'
 if (-not (Test-Path $InputPath)) { throw "InputPath not found: $InputPath" }
 $files = @()
 if ((Get-Item $InputPath).PSIsContainer) {
-  $files += Get-ChildItem $InputPath -Recurse -File | ? { $_.Name -match 'FleetSummary-.*\.(csv|json)$|EndpointCheck-.*\.json$' }
+  $files += Get-ChildItem $InputPath -Recurse -File | Where-Object { $_.Name -match 'FleetSummary-.*\.(csv|json)$|EndpointCheck-.*\.json$' }
 }
 else { $files += Get-Item $InputPath }
 if (-not $files) { throw 'No supported input files found.' }
 $rows = New-Object System.Collections.Generic.List[object]
 foreach ($f in $files) {
   if ($f.Extension -eq '.csv') {
-    try { Import-Csv $f.FullName | % { $rows.Add($_) } } catch {}
+    try { Import-Csv $f.FullName | ForEach-Object { $rows.Add($_) } } catch {}
   }
   elseif ($f.Extension -eq '.json') {
     try {

@@ -129,9 +129,9 @@ function Invoke-BootstrapFile {
   try {
     switch ($kind) {
       'PowerShell' {
-        $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File', $Path)
-        if ($Arguments) { $args += $Arguments }
-        $p = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        $procArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File', $Path)
+        if ($Arguments) { $procArgs += $Arguments }
+        $p = Start-Process -FilePath 'powershell.exe' -ArgumentList $procArgs -Wait -PassThru -WindowStyle Hidden
       }
       'Batch' {
         $cmdArgs = '/c "' + $Path + '"'
@@ -139,14 +139,14 @@ function Invoke-BootstrapFile {
         $p = Start-Process -FilePath 'cmd.exe' -ArgumentList $cmdArgs -Wait -PassThru -WindowStyle Hidden
       }
       'Executable' {
-        $args = @()
-        if ($Arguments) { $args += $Arguments }
-        $p = Start-Process -FilePath $Path -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        $procArgs = @()
+        if ($Arguments) { $procArgs += $Arguments }
+        $p = Start-Process -FilePath $Path -ArgumentList $procArgs -Wait -PassThru -WindowStyle Hidden
       }
       'Msi' {
-        $args = @('/i', "`"$Path`"")
-        if ($Arguments) { $args += $Arguments }
-        $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+        $procArgs = @('/i', "`"$Path`"")
+        if ($Arguments) { $procArgs += $Arguments }
+        $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList $procArgs -Wait -PassThru -WindowStyle Hidden
       }
       default { throw "Unsupported bootstrap file type: $kind" }
     }
