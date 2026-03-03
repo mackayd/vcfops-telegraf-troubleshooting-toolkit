@@ -112,7 +112,8 @@ The included bootstrap probe script is a **semi-manual diagnostic tool** to test
 ---
 
 ## Recommended troubleshooting workflow (single host)
-
+> **Example Output**
+> ![Alt text for accessibility](ExampleSingleVMtestingCommands.png)
 ### 1) Run endpoint precheck (on target Windows VM)
 ```powershell
 .\Test-VcfOpsTelegrafEndpoint.ps1 -CloudProxyFqdn cp01.yourdomain.local
