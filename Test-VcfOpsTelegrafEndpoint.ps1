@@ -85,7 +85,7 @@ foreach ($port in 443, 8443, 4505, 4506) {
     else { $results.Add((New-Result "TCP $port" 'FAIL' "Cannot connect to $CloudProxyFqdn on $port" @{ Port = $port; Error = $t.Error })) }
 }
 foreach ($port in 443, 8443) {
-    $u = "https://$CloudProxyFqdn`:$port/"
+    $u = "https://$CloudProxyFqdn`:$port/downloads/salt/config-utils.bat"
     $h = Test-HttpsHandshake -Uri $u
     if ($h.Success) { $results.Add((New-Result "HTTPS $port" 'PASS' "HTTPS handshake succeeded ($($h.StatusCode))" @{ Uri = $u; StatusCode = $h.StatusCode })) }
     else {
