@@ -155,7 +155,7 @@ Run on the target VM to test the bootstrap path more directly:
 .\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 `
   -CloudProxyFqdn cp01.yourdomain.local `
   -BootstrapPath '/downloads/salt/config-utils.bat' `
-  -Mode DownloadOnly
+  -DownloadOnly
 ```
 
 Then, if appropriate for diagnostic testing:
@@ -164,7 +164,7 @@ Then, if appropriate for diagnostic testing:
 .\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 `
   -CloudProxyFqdn cp01.yourdomain.local `
   -BootstrapPath '/downloads/salt/config-utils.bat' `
-  -Mode Execute
+  -ExecuteBootstrap
 ```
 
 > **Note**
