@@ -69,7 +69,7 @@ catch { $results.Add((New-Result 'DNS Resolution' 'FAIL' "Failed to resolve $Clo
 
 try {
     $p = Test-Connection -ComputerName $CloudProxyFqdn -Count 2 -ErrorAction Stop
-    $avg = [math]::Round((($p | Measure-Object ResponseTime -Average).Average), 2)
+    $avg = [math]::Round((($p | Measure-Object Latency -Average).Average), 2)
     $results.Add((New-Result 'ICMP Ping' 'PASS' "ICMP reachable, avg ${avg}ms" @{ AvgMs = $avg }))
 }
 catch { $results.Add((New-Result 'ICMP Ping' 'WARN' 'ICMP failed/blocked (not always required)' @{ Error = $_.Exception.Message })) }
