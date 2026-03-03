@@ -1,0 +1,65 @@
+# PowerShell / IDE
+*.pssproj
+*.suo
+*.user
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs / transcripts / diagnostics
+*.log
+*.etl
+*.evtx
+*.trace
+*.tmp
+*.bak
+*.old
+*.zip
+*.7z
+*.rar
+Transcripts/
+Logs/
+Output/
+Reports/
+Evidence/
+Diag/
+Diagnostics/
+
+# Toolkit-generated outputs (typical names/patterns)
+*EndpointCheck-*.json
+*EndpointCheck-*.txt
+*KnownGood-Diff*.csv
+*VCFOps-Telegraf-Report*.html
+*VCFOps-Telegraf-Report*.htm
+Collect-*/
+Fleet-*/
+
+# CSV target lists / local environment data (optional - uncomment if you don't want to commit)
+# targets*.csv
+# *.secrets.json
+# *.local.json
+
+# Credentials / secrets
+*.credential
+*.cred
+*.secret
+*.key
+*.pfx
+*.pem
+*.cer
+*.csr
+secrets/
+
+# Exported support bundles
+*_diag.zip
+*_evidence.zip
+
+# Module/test artifacts
+modules/
+.psake/
+PesterResults/
+TestResults/
+coverage/
