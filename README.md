@@ -153,7 +153,7 @@ Run on the target VM to test the bootstrap path more directly:
 ```powershell
 .\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 `
   -CloudProxyFqdn cp01.yourdomain.local `
-  -BootstrapPath '/<your-environment-specific-bootstrap-path>' `
+  -BootstrapPath '/downloads/salt/config-utils.bat' `
   -Mode DownloadOnly
 ```
 
@@ -162,7 +162,7 @@ Then, if appropriate for diagnostic testing:
 ```powershell
 .\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 `
   -CloudProxyFqdn cp01.yourdomain.local `
-  -BootstrapPath '/<your-environment-specific-bootstrap-path>' `
+  -BootstrapPath '/downloads/salt/config-utils.bat' `
   -Mode Execute
 ```
 
@@ -295,7 +295,7 @@ APP-SRV-BASELINE01,Known good
 ## Requirements
 
 ### On target Windows endpoints
-- PowerShell 5.1+ recommended
+- PowerShell 7 recommended
 - Local Administrator (recommended for full checks)
 - Ability to run local scripts (`RemoteSigned` or process-scope bypass as appropriate)
 
