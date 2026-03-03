@@ -4,6 +4,13 @@
 
 This toolkit helps isolate which stage of the **product-managed Telegraf deployment flow** is failing by testing the same dependencies the product relies on (network, DNS, TLS, Guest Operations, bootstrap path, and endpoint execution), while still keeping the final deployment method **product-managed**.
 
+<p align="left">
+  <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7+-blue">
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20PowerCLI-lightgrey">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
+  <img alt="Status" src="https://img.shields.io/badge/Status-Stable-brightgreen">
+</p>
+
 ---
 
 ## Purpose
@@ -18,6 +25,8 @@ When a product-managed Telegraf deployment fails, the issue is often not “Tele
 - **DNS resolution** (wrong interface/IP, split DNS, stale records)
 
 This toolkit gives you a repeatable way to validate each layer, compare failing vs known-good hosts, and collect evidence for platform, firewall/security teams, or Broadcom support.
+
+![Alt text for accessibility](Telegraf-toolkit-workflow.png)
 
 ---
 
@@ -82,6 +91,7 @@ The included bootstrap probe script is a **semi-manual diagnostic tool** to test
 
 - **`New-VcfOpsTelegrafHtmlReport.ps1`**
   - Builds a consolidated HTML report/dashboard from collected JSON outputs
+   ![Alt text for accessibility](toolkit-report-example.png)
 
 - **`Invoke-VcfOpsTelegrafCompareMode.ps1`**
   - Wrapper for comparing a **known-good** host to failing hosts
