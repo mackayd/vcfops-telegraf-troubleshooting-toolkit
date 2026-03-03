@@ -9,8 +9,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 function W([string]$m, [string]$l = 'INFO') { $c = @{INFO = 'Cyan'; PASS = 'Green'; WARN = 'Yellow'; FAIL = 'Red' }[$l]; Write-Host "[$l] $m" -ForegroundColor $c }
-if (-not (Get-Module -ListAvailable VMware.PowerCLI)) { throw 'VMware.PowerCLI not installed. Install-Module VMware.PowerCLI' }
-Import-Module VMware.PowerCLI -ErrorAction Stop | Out-Null
+if (-not (Get-Module -ListAvailable VCF.PowerCLI)) { throw 'VCF.PowerCLI not installed. Install-Module VCF.PowerCLI' }
+Import-Module VCF.PowerCLI -ErrorAction Stop | Out-Null
 try { Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -ParticipateInCEIP:$false -Confirm:$false | Out-Null } catch {}
 $plain = $null
 $bstr = [IntPtr]::Zero

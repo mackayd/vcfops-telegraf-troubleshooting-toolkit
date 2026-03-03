@@ -300,8 +300,8 @@ APP-SRV-BASELINE01,Known good
 - Ability to run local scripts (`RemoteSigned` or process-scope bypass as appropriate)
 
 ### On admin workstation / jump host (Guest Ops scripts)
-- PowerShell 5.1+ or PowerShell 7
-- **VMware PowerCLI** module
+- PowerShell PowerShell 7
+- **VCF PowerCLI** module
 - vCenter connectivity
 - Appropriate vCenter permissions
 - Valid guest OS credentials for test execution
@@ -311,7 +311,7 @@ APP-SRV-BASELINE01,Known good
 ## PowerCLI install (if needed)
 
 ```powershell
-Install-Module VMware.PowerCLI -Scope CurrentUser
+Install-Module VCF.PowerCLI -Scope CurrentUser
 ```
 
 ---
