@@ -2,7 +2,7 @@
 
 **PowerShell toolkit for troubleshooting product-managed Telegraf agent deployment** in **VCF Operations / Aria Operations** environments (Windows endpoints).
 
-This toolkit helps isolate which stage of the **product-managed Telegraf deployment flow** is failing by testing the same dependencies the product relies on (network, DNS, TLS, Guest Operations, bootstrap path, and endpoint execution), while still keeping the final deployment method **product-managed**.
+This toolkit helps isolate which stage of the **product-managed Telegraf deployment flow** is failing by testing the same dependencies the product relies on, including **network reachability, DNS, Guest Operations, guest-side execution, and Cloud Proxy communication paths**, while still keeping the final deployment method **product-managed**.
 
 <p align="left">
   <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7+-blue">
@@ -19,6 +19,8 @@ When a product-managed Telegraf deployment fails, the issue is often not “Tele
 
 - **vCenter Guest Operations** (VMware Tools / guest credentials / permissions)
 - **Cloud Proxy reachability** (ports, routing, firewall)
+- **Target VM to platform dependencies** (vCenter / ESXi / Cloud Proxy over 443)
+- **Cloud Proxy to platform dependencies** (vCenter / owning ESXi over 443)
 - **TLS / HTTPS trust** (certificate chain, SSL inspection, FQDN mismatch)
 - **Managed control path** (registration/config push ports)
 - **Endpoint security / policy** (EDR, AppLocker, Defender ASR)
@@ -42,7 +44,7 @@ The included bootstrap probe script is a **semi-manual diagnostic tool** to test
 
 ---
 
-## What’s included (v2.1.1)
+## What’s included (v2.2.0)
 
 ### Core endpoint diagnostics (run on target Windows VM)
 - **`Test-VcfOpsTelegrafEndpoint.ps1`**
@@ -61,9 +63,23 @@ The included bootstrap probe script is a **semi-manual diagnostic tool** to test
 ### Guest Operations validation (run from admin workstation with PowerCLI)
 - **`Test-VCenterGuestOpsForTelegraf.ps1`**
   - Connects to vCenter
-  - Validates VM power state + VMware Tools status
-  - Runs a harmless command inside the guest using `Invoke-VMScript`
-  - Helps isolate whether the failure occurs **before** bootstrap launch
+  - Validates target VM power state and VMware Tools health
+  - Identifies the **owning ESXi host** for the target VM
+  - Runs guest-side checks inside the target Windows VM using `Invoke-VMScript`
+  - Tests:
+    - **Target VM > vCenter on 443**
+    - **Target VM > owning ESXi host on 443**
+    - **Target VM > Cloud Proxy on 443** (when supplied)
+  - Optionally creates a harmless guest test file in `C:\Temp`
+  - Optionally performs **Cloud Proxy guest-side checks** using `Invoke-VMScript` against the Cloud Proxy appliance
+  - Tests:
+    - **Cloud Proxy > vCenter on 443**
+    - **Cloud Proxy > owning ESXi host on 443**
+  - Supports either **ESXi hostname** or **ESXi management IP** for Cloud Proxy-side testing
+  - Produces a grouped console summary with:
+    - PASS / WARN / FAIL outcomes
+    - remediation suggestions
+    - related Broadcom KB references for common failure conditions
 
 - **`Test-VCenterGuestOpsFleetForTelegraf.ps1`**
   - CSV-driven Guest Ops validation across multiple VMs
@@ -112,8 +128,10 @@ The included bootstrap probe script is a **semi-manual diagnostic tool** to test
 ---
 
 ## Recommended troubleshooting workflow (single host)
+
 > **Example Output**
 > ![Alt text for accessibility](ExampleSingleVMtestingCommands.png)
+
 ### 1) Run endpoint precheck (on target Windows VM)
 ```powershell
 .\Test-VcfOpsTelegrafEndpoint.ps1 -CloudProxyFqdn cp01.yourdomain.local
@@ -122,11 +140,11 @@ The included bootstrap probe script is a **semi-manual diagnostic tool** to test
 **What it tells you**
 - **TCP 4505/4506 FAIL** → likely Cloud Proxy control-path firewall issue
 - **HTTPS 443/8443 FAIL** → likely TLS/cert trust or HTTPS reachability issue
-- All pass → likely issue is Guest Ops, bootstrap execution, or endpoint security/policy
+- All pass → likely issue is Guest Ops, guest-side execution, or endpoint security/policy
 
 ---
 
-### 2) Validate Guest Ops path (PowerCLI from admin workstation)
+### 2) Validate Guest Ops path and target connectivity (PowerCLI from admin workstation)
 ```powershell
 $pw = Read-Host "Guest password" -AsSecureString
 
@@ -135,20 +153,49 @@ $pw = Read-Host "Guest password" -AsSecureString
   -VMName APP-SRV-01 `
   -GuestUser 'DOMAIN\svc_vmguestops' `
   -GuestPassword $pw `
+  -CloudProxyTargetHost cp01.yourdomain.local `
   -CreateTestFile
 ```
 
 **What it tells you**
-- If `Invoke-VMScript` fails → focus on:
+- If `Invoke-VMScript` fails on the target VM → focus on:
   - VMware Tools health
   - guest credentials / local admin rights
   - vCenter Guest Operations permissions
   - endpoint security blocking VMware Tools-launched execution
-- If it passes → move on to bootstrap/control-path diagnostics
+- If **Target VM > vCenter 443** fails → focus on target VM to vCenter connectivity, routing, firewall, or DNS
+- If **Target VM > ESXi 443** fails → focus on target VM to owning ESXi host connectivity
+- If **Target VM > Cloud Proxy 443** fails → focus on target VM to Cloud Proxy connectivity and name resolution
 
 ---
 
-### 3) (Optional) Run bootstrap probe (diagnostic)
+### 3) (Optional) Validate Cloud Proxy guest-side connectivity
+If you want to test directly from the Cloud Proxy appliance guest OS as well:
+
+```powershell
+$pw = Read-Host "Target guest password" -AsSecureString
+$cppw = Read-Host "Cloud Proxy guest password" -AsSecureString
+
+.\Test-VCenterGuestOpsForTelegraf.ps1 `
+  -vCenterServer vcsa01.yourdomain.local `
+  -VMName APP-SRV-01 `
+  -GuestUser 'DOMAIN\svc_vmguestops' `
+  -GuestPassword $pw `
+  -CloudProxyVmName aria-cp01 `
+  -CloudProxyGuestUser 'root' `
+  -CloudProxyGuestPassword $cppw `
+  -UseEsxiManagementIpForCloudProxyTest
+```
+
+**What it tells you**
+- If **Cloud Proxy > vCenter 443** fails → focus on Cloud Proxy routing, firewall, DNS, certificates, or trust
+- If **Cloud Proxy > ESXi 443** fails → focus on Cloud Proxy to ESXi firewall/routing and possibly ESXi name resolution
+- If hostname resolution is unreliable between the Cloud Proxy and ESXi, rerun with:
+  - `-UseEsxiManagementIpForCloudProxyTest`
+
+---
+
+### 4) (Optional) Run bootstrap probe (diagnostic)
 Run on the target VM to test the bootstrap path more directly:
 
 ```powershell
@@ -173,12 +220,12 @@ Then, if appropriate for diagnostic testing:
 
 ---
 
-### 4) Retry product-managed deployment in VCF / Aria Operations UI
+### 5) Retry product-managed deployment in VCF / Aria Operations UI
 Once the failing layer is corrected, retry **Deploy Agent** from the product UI.
 
 ---
 
-### 5) Collect evidence if it still fails
+### 6) Collect evidence if it still fails
 Run on the target Windows VM after the failed attempt:
 
 ```powershell
@@ -189,6 +236,50 @@ This creates a diagnostic bundle suitable for:
 - internal firewall/security/platform teams
 - Broadcom support SRs
 - known-good vs failing comparisons
+
+---
+
+## `Test-VCenterGuestOpsForTelegraf.ps1` parameters and usage notes
+
+### Key parameters
+- **`-vCenterServer`**  
+  vCenter Server FQDN or IP.
+
+- **`-VMName`**  
+  Target Windows VM to validate.
+
+- **`-GuestUser` / `-GuestPassword`**  
+  Guest OS credentials used for `Invoke-VMScript` inside the target VM.
+
+- **`-CreateTestFile`**  
+  Creates `C:\Temp\vcfops_guestops_test.txt` inside the target VM as a harmless write test.
+
+- **`-CloudProxyTargetHost`**  
+  FQDN or IP of the Cloud Proxy to test from the target VM when you do not want to run guest-side checks on the Cloud Proxy appliance itself.
+
+- **`-CloudProxyVmName`**  
+  Cloud Proxy VM name in vCenter. When supplied, the script can perform guest-side Bash connectivity tests directly from the Cloud Proxy appliance.
+
+- **`-CloudProxyGuestUser` / `-CloudProxyGuestPassword`**  
+  Guest OS credentials for the Cloud Proxy appliance.
+
+- **`-PromptForCloudProxyGuestPassword`**  
+  Prompts interactively for the Cloud Proxy guest password instead of passing a secure string variable.
+
+- **`-CloudProxyPortTestTimeoutSec`**  
+  Timeout used by the Cloud Proxy guest-side TCP 443 checks. Default is `5`.
+
+- **`-UseEsxiManagementIpForCloudProxyTest`**  
+  Uses the ESXi management IP rather than the ESXi hostname for Cloud Proxy-side connectivity tests. Useful where DNS resolution from the appliance is unreliable.
+
+### Notes
+- `CloudProxyTargetHost` defaults to `CloudProxyVmName` if a separate target host is not supplied.
+- If `CloudProxyVmName` is omitted, Cloud Proxy guest-side tests are skipped and the script records that as a warning rather than a hard failure.
+- The script supports **VCF.PowerCLI** and **VMware.PowerCLI**.
+- The script uses `Set-PowerCLIConfiguration -InvalidCertificateAction Ignore` to simplify lab and troubleshooting usage.
+- Cloud Proxy guest-side tests use:
+  - `nc` where available
+  - Bash `/dev/tcp` fallback when `nc` is not present
 
 ---
 
@@ -260,6 +351,7 @@ APP-SRV-BASELINE01,Known good
 - TCP 443/8443 succeeds
 - HTTPS/TLS test fails with trust/name/handshake errors
 - Bootstrap probe fails at download stage
+- Cloud Proxy to vCenter 443 may connect at TCP level but still have certificate/trust issues operationally
 
 **Likely cause**
 - Endpoint does not trust Cloud Proxy certificate chain / internal CA
@@ -282,7 +374,34 @@ APP-SRV-BASELINE01,Known good
 
 ---
 
-### 4) Endpoint security / local policy blocking execution
+### 4) Target VM cannot reach required platform endpoints
+**Symptoms**
+- `Target VM > vCenter on 443` = FAIL
+- and/or `Target VM > ESXi on 443` = FAIL
+- and/or `Target VM > Cloud Proxy on 443` = FAIL
+
+**Likely cause**
+- Routing issue
+- host firewall / upstream firewall policy
+- DNS resolution failure
+- incorrect Cloud Proxy FQDN/IP
+
+---
+
+### 5) Cloud Proxy cannot reach vCenter or owning ESXi
+**Symptoms**
+- `Cloud Proxy > vCenter on 443` = FAIL
+- and/or `Cloud Proxy > ESXi on 443` = FAIL
+
+**Likely cause**
+- Firewall path blocked from Cloud Proxy network
+- DNS resolution issue between appliance and infrastructure endpoints
+- incorrect ESXi hostname resolution
+- appliance routing issue
+
+---
+
+### 6) Endpoint security / local policy blocking execution
 **Symptoms**
 - Network + Guest Ops tests pass
 - Bootstrap probe fails during execution/service creation
@@ -301,11 +420,19 @@ APP-SRV-BASELINE01,Known good
 - Ability to run local scripts (`RemoteSigned` or process-scope bypass as appropriate)
 
 ### On admin workstation / jump host (Guest Ops scripts)
-- PowerShell PowerShell 7
-- **VCF PowerCLI** module
+- PowerShell 7
+- **VCF PowerCLI** or **VMware PowerCLI**
 - vCenter connectivity
 - Appropriate vCenter permissions
 - Valid guest OS credentials for test execution
+
+### For optional Cloud Proxy guest-side validation
+- Cloud Proxy VM visible in vCenter
+- VMware Tools / open-vm-tools running on the Cloud Proxy appliance
+- Valid Cloud Proxy guest credentials
+- Shell tooling available on the appliance:
+  - `nc`, or
+  - `bash` with `/dev/tcp` and `timeout`
 
 ---
 
@@ -313,6 +440,12 @@ APP-SRV-BASELINE01,Known good
 
 ```powershell
 Install-Module VCF.PowerCLI -Scope CurrentUser
+```
+
+If you prefer standard VMware PowerCLI:
+
+```powershell
+Install-Module VMware.PowerCLI -Scope CurrentUser
 ```
 
 ---
@@ -341,11 +474,12 @@ Get-Help .\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 -Full
 ## Suggested usage during a real incident
 
 1. Run endpoint precheck
-2. Run Guest Ops validator
-3. Retry product-managed deploy in UI
-4. Run evidence collector
-5. Compare with known-good host
-6. Share diff/evidence with the relevant team (platform, firewall, security, support)
+2. Run Guest Ops validator against the target VM
+3. Optionally run Cloud Proxy guest-side validation
+4. Retry product-managed deploy in UI
+5. Run evidence collector
+6. Compare with known-good host
+7. Share diff/evidence with the relevant team (platform, firewall, security, support)
 
 This sequence helps isolate the failing layer quickly and reduces random trial-and-error.
 
