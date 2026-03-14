@@ -26,7 +26,7 @@ When a product-managed Telegraf deployment fails, the root cause is often not â€
 
 This toolkit gives you a repeatable way to validate those layers, collect evidence, and generate a report that can be shared with platform, firewall, security, or support teams.
 
-![Toolkit workflow](images/Telegraf-toolkit-workflow.png)
+![Toolkit workflow](Images/Telegraf-toolkit-workflow.png)
 
 ---
 
@@ -336,7 +336,7 @@ $cpPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
   -CloudProxyGuestPassword $cpPw
 ```
 
-![Single VM example commands](images/ExampleSingleVMtestingCommands.png)
+![Single VM example commands](Images/ExampleSingleVMtestingCommands.png)
 
 ### Run Guest Ops fleet testing with Windows and Linux credential files
 
@@ -399,11 +399,11 @@ The HTML report now provides:
 
 ### Report overview
 
-![Fleet report example](images/Example-Fleet-Report.png)
+![Fleet report example](Images/Example-Fleet-Report.png)
 
 ### Report interaction preview
 
-![Fleet report animation](images/Example-VcfFleetReport.gif)
+![Fleet report animation](Images/Example-VcfFleetReport.gif)
 
 ### Included sample report
 
