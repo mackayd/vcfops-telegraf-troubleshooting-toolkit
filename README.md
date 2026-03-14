@@ -201,7 +201,7 @@ It:
 
 Use it when you want the most detailed console output for one VM.
 
-![Example single VM commands](Images/ExampleSingleVMtestingCommands.png
+![Example single VM commands](Images/ExampleSingleVMtestingCommands.png)
 
 ### Local endpoint workflow
 
@@ -292,7 +292,7 @@ Fleet results can be rendered into the dashboard-style report with `New-VcfOpsTe
 The same report script can parse:
 
 - Guest Ops fleet JSON
-- vCenter fleet JSON
+- ~~vCenter fleet JSON~~ :Deprecated script
 - compatible CSV summary files
 
 ---
