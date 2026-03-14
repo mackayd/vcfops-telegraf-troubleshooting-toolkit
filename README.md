@@ -142,25 +142,24 @@ It provides:
 ## Repository layout
 
 ```text
-.
 ├── Invoke-VcfOpsFleetGuestOps.ps1
 ├── New-VcfOpsTelegrafHtmlReport.ps1
 ├── Save-VcfOpsTelegrafCredential.ps1
 ├── Test-VCenterGuestOpsForTelegraf.ps1
-├── ExampleSingleVMtestingCommands.png
 ├── Example-Fleet-targets.csv
-├── Example-Fleet-Report.png
 ├── Example-GuestFleetReport.html
-├── Example-VcfFleetReport.gif
-├── Telegraf-toolkit-workflow.png
-├── toolkit-report-example.png
+├── Images
+│   ├── ExampleSingleVMtestingCommands.png
+│   ├── Example-Fleet-Report.png
+│   ├── Example-VcfFleetReport.gif
+│   └── Telegraf-toolkit-workflow.png
 └── EndPointTests
     ├── Collect-VcfOpsTelegrafDeployDiag.ps1
     ├── Invoke-VcfOpsTelegrafBootstrapProbe.ps1
     └── Test-VcfOpsTelegrafEndpoint.ps1
 ```
 
-> The endpoint-executed scripts are stored in the `EndPointTests` folder for organisation, but when scripts refer to each other in help text or workflow examples they are referenced by script name only.
+> The endpoint-executed scripts are stored in the `EndPointTests` folder and support Virtual or Baremetal Windows deployments.
 
 ---
 
