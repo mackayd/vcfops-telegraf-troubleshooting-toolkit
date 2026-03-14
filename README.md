@@ -45,8 +45,7 @@ Version 3.0 is a major refresh of the toolkit:
   - summary graphics
   - clickable VM drill-down
   - Show All VMs overview
-  - dark blue dashboard theme
-- **Guest Ops fleet output** and **vCenter fleet output** can be parsed by the same HTML report script
+- **Guest Ops fleet output** and **vCenter fleet output** can be parsed by the same HTML report script, however vCenter Fleet script is retired to archive aws Guest Ops now performs the same fucntion using faster execution
 - **Help output** is now consistent across the toolkit with `-h`, `-Full`, and `-Examples`
 
 Because the Guest Ops workflow and reporting experience changed significantly, this release is documented as **v3.0**.
