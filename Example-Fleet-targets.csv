@@ -1,0 +1,4 @@
+VMName,GuestUser,GuestPassword,TargetOs,UseSudo,AltCredFile
+Telegraf-test01,AltCredFile,P@ssw0rd123!,Auto,false,
+Telegraf-test02,user,P@ssw0rd123!,Auto,false,
+Telegraf-test03,,,Auto,false,Telegraf-test03.xml

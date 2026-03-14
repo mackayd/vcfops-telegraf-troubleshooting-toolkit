@@ -1,3 +1,0 @@
-VMName,GuestUser,GuestPassword
-APP-SRV-01,DOMAIN\\svc_vmguestops,REPLACE_ME_OR_USE_PROMPT
-APP-SRV-02,DOMAIN\\svc_vmguestops,REPLACE_ME_OR_USE_PROMPT

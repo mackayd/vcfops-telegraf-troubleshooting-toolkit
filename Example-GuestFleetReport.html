@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<meta name='viewport' content='width=device-width, initial-scale=1' />
+<title>VCF Ops Telegraf Toolkit Report</title>
+<style>
+:root{--bg:#0b1220;--panel:#111a2b;--panel2:#17233a;--text:#e8eef8;--muted:#9fb0c8;--border:#243650;--accent:#69b1ff;--pass:#2e7d32;--warn:#f9a825;--fail:#c62828;--info:#1565c0;--shadow:0 12px 40px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#09101d,#0f1728 25%,#0d1321);color:var(--text)}
+.container{max-width:1680px;margin:0 auto;padding:24px}
+.hero{background:linear-gradient(135deg,#15315c,#101b31 55%,#113b34);border:1px solid var(--border);border-radius:24px;padding:28px;box-shadow:var(--shadow);margin-bottom:20px}
+.hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.hero h1{margin:0 0 8px;font-size:32px}
+.hero p{margin:0;color:#d2def0}
+.hero-note{font-size:13px;color:#aebfd6;margin-top:8px}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:70px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;letter-spacing:.4px;text-transform:uppercase}
+.badge.PASS{background:#1b5e20;color:#d6ffd6}.badge.WARN{background:#7a5a00;color:#fff0b5}.badge.FAIL{background:#7f1d1d;color:#ffd6d6}.badge.INFO{background:#0d47a1;color:#dce9ff}
+.badge.large{padding:10px 16px;font-size:13px}
+.hero-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-top:24px}
+.stack-card,.score-card,.sidebar-card,.panel-card,.panel-header,.detail-card,.stat-card,.vm-overview-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px}
+.stack-card,.score-card,.sidebar-card,.panel-card,.panel-header,.detail-card,.stat-card,.vm-overview-card{padding:20px}
+.stack-bar{display:flex;height:54px;border-radius:18px;overflow:hidden;margin-top:18px;background:#0f1728;border:1px solid rgba(255,255,255,.1)}
+.stack-segment{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;white-space:nowrap}.stack-segment span{padding:0 10px}
+.stack-segment.PASS{background:var(--pass)}.stack-segment.WARN{background:var(--warn);color:#111}.stack-segment.FAIL{background:var(--fail)}.stack-segment.INFO{background:var(--info)}
+.score-card{display:flex;align-items:center;justify-content:center}
+.score-ring{width:180px;height:180px;border-radius:50%;background:conic-gradient(var(--pass) 0 25%, var(--warn) 25% 75%, var(--fail) 75% 75%, var(--info) 75% 100%);display:flex;align-items:center;justify-content:center}
+.score-ring-content{width:130px;height:130px;border-radius:50%;background:#0f1728;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-ring-value{font-size:44px;font-weight:800}.score-ring-label{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:20px 0}
+.stat-card{padding:18px}.stat-label{color:var(--muted);font-size:13px}.stat-value{font-size:34px;font-weight:800;margin-top:8px}
+.main-grid{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}.sidebar,.content{min-width:0}
+.sidebar-card{position:sticky;top:20px}
+.section-title{margin:0 0 6px;font-size:18px}.section-subtitle{margin:0 0 16px;color:var(--muted);font-size:13px}
+.filter-bar,.view-mode-toggle{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 18px}
+button{cursor:pointer;border:none}.filter-btn,.view-btn,.open-btn,.view-vm-btn,.raw-toggle{padding:10px 14px;border-radius:12px;background:#18253b;color:var(--text);border:1px solid var(--border);font-weight:600}
+.filter-btn.active,.view-btn.active{background:#1d4ed8;border-color:#3b82f6}
+.vm-nav{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 300px);overflow:auto;padding-right:4px}
+.vm-nav-item{width:100%;text-align:left;padding:12px 14px;border-radius:14px;background:#141f33;border:1px solid var(--border);color:var(--text);display:flex;flex-direction:column;gap:4px}
+.vm-nav-item:hover,.vm-overview-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.22);transform:translateY(-1px)}
+.vm-nav-item.active{outline:2px solid #3b82f6;background:#18253b}
+.vm-nav-item.PASS{border-left:6px solid var(--pass)}.vm-nav-item.WARN{border-left:6px solid var(--warn)}.vm-nav-item.FAIL{border-left:6px solid var(--fail)}.vm-nav-item.INFO{border-left:6px solid var(--info)}
+.vm-nav-title{font-weight:800}.vm-nav-meta,.vm-nav-sub{font-size:12px;color:var(--muted)}
+.vm-panel{display:none;flex-direction:column;gap:18px}.vm-panel.active{display:flex}
+.panel-header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--muted);font-weight:700}.panel-header h2{margin:4px 0 6px;font-size:28px}.panel-subtitle{margin:0;color:var(--muted)}
+.detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.detail-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}.detail-value{font-size:15px;font-weight:700;word-break:break-word}
+.panel-card h3{margin:0 0 14px;font-size:18px}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}th{color:#c9d8ee;font-size:13px;background:#101a2d;position:sticky;top:0}td{font-size:14px;color:#e9f1fd}
+tr.PASS td{background:rgba(46,125,50,.14)}tr.WARN td{background:rgba(249,168,37,.16);color:#fff2c2}tr.FAIL td{background:rgba(198,40,40,.16)}tr.INFO td{background:rgba(21,101,192,.14)}
+.suggestion-list{margin:0;padding-left:18px}.suggestion-list li{margin:0 0 8px}
+.raw-output{margin-top:14px;background:#0f172a;color:#dce9ff;padding:16px;border-radius:16px;overflow:auto;max-height:420px;font-size:12px;line-height:1.45;white-space:pre-wrap;border:1px solid var(--border)}
+.hidden{display:none}.empty-state{background:rgba(255,255,255,.04);border:1px dashed var(--border);border-radius:22px;padding:50px;text-align:center;color:var(--muted)}.footer-note{margin-top:18px;font-size:12px;color:var(--muted)}
+.overview-panel{display:none;flex-direction:column;gap:16px}.overview-panel.active{display:flex}.overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.vm-overview-card{box-shadow:0 8px 24px rgba(0,0,0,.22)}.vm-overview-card.PASS{border-top:5px solid var(--pass)}.vm-overview-card.WARN{border-top:5px solid var(--warn)}.vm-overview-card.FAIL{border-top:5px solid var(--fail)}.vm-overview-card.INFO{border-top:5px solid var(--info)}
+.vm-overview-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.vm-overview-top h3{margin:4px 0 6px;font-size:22px}.vm-overview-top p{margin:0;color:var(--muted);font-size:13px}
+.overview-actions{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.mini-check-list{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}.mini-check-list li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;background:#101a2d;border:1px solid var(--border);border-radius:12px}.mini-check-name{font-size:13px;font-weight:600}
+@media (max-width:1180px){.hero-grid,.main-grid,.stats,.detail-grid{grid-template-columns:1fr}.sidebar-card{position:static}}
+</style>
+</head>
+<body>
+  <div class='container'>
+    <section class='hero'>
+      <div class='hero-top'>
+        <div>
+          <h1>VCF Ops Telegraf Toolkit Report</h1>
+          <p>Interactive validation summary for Telegraf guest operations and Cloud Proxy prerequisites.</p>
+          <div class='hero-note'>Generated: 03/13/2026 20:52:56</div>
+        </div>
+        <div class='badge large INFO'>VCF Fleet</div>
+      </div>
+      <div class='hero-grid'>
+        <div class='stack-card'>
+          <div class='eyebrow'>Summary Graphic</div>
+          <h2 style='margin:6px 0 0'>VM status distribution</h2>
+          <p class='section-subtitle' style='color:rgba(255,255,255,.74);margin-top:8px'>Click a VM on the left to inspect its checks, suggestions, and raw execution output.</p>
+          <div class='stack-bar'>
+            <div class='stack-segment PASS' style='width:25%'><span>PASS 1</span></div>
+<div class='stack-segment WARN' style='width:50%'><span>WARN 2</span></div>
+<div class='stack-segment INFO' style='width:25%'><span>INFO 1</span></div>
+          </div>
+        </div>
+        <div class='score-card'>
+          <div class='score-ring'>
+            <div class='score-ring-content'>
+              <div class='score-ring-value'>1</div>
+              <div class='score-ring-label'>Passing VMs</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class='stats'>
+      <div class='stat-card'>
+        <div class='stat-label'>Total VMs</div>
+        <div class='stat-value'>4</div>
+      </div>
+      <div class='stat-card PASS'><div class='stat-label'>PASS VMs</div><div class='stat-value'>1</div></div>
+<div class='stat-card WARN'><div class='stat-label'>WARN VMs</div><div class='stat-value'>2</div></div>
+<div class='stat-card FAIL'><div class='stat-label'>FAIL VMs</div><div class='stat-value'>0</div></div>
+<div class='stat-card INFO'><div class='stat-label'>INFO VMs</div><div class='stat-value'>1</div></div>
+    </section>
+
+    <section class='main-grid'>
+      <aside class='sidebar'>
+        <div class='sidebar-card'>
+          <h2 class='section-title'>Virtual Machines</h2>
+          <p class='section-subtitle'>Select a VM to reveal its detailed validation results.</p>
+          <div class='filter-bar'>
+            <button type='button' class='filter-btn active' data-filter='ALL'>All</button>
+            <button type='button' class='filter-btn' data-filter='PASS'>PASS</button>
+            <button type='button' class='filter-btn' data-filter='WARN'>WARN</button>
+            <button type='button' class='filter-btn' data-filter='FAIL'>FAIL</button>
+            <button type='button' class='filter-btn' data-filter='INFO'>INFO</button>
+          </div>
+          <div class='vm-nav'>
+            <button type='button' class='vm-nav-item PASS' data-vm-id='telegraf-test01' data-status='PASS'>
+  <span class='vm-nav-title'>Telegraf-test01</span>
+  <span class='vm-nav-meta'>Windows · PASS</span>
+  <span class='vm-nav-sub'>CSV plaintext</span>
+</button>
+<button type='button' class='vm-nav-item WARN' data-vm-id='telegraf-test02' data-status='WARN'>
+  <span class='vm-nav-title'>Telegraf-test02</span>
+  <span class='vm-nav-meta'>Linux · WARN</span>
+  <span class='vm-nav-sub'>CSV plaintext</span>
+</button>
+<button type='button' class='vm-nav-item WARN' data-vm-id='telegraf-test03' data-status='WARN'>
+  <span class='vm-nav-title'>Telegraf-test03</span>
+  <span class='vm-nav-meta'>Linux · WARN</span>
+  <span class='vm-nav-sub'>AlternateCredentialFile</span>
+</button>
+<button type='button' class='vm-nav-item INFO' data-vm-id='CloudProxy01' data-status='INFO'>
+  <span class='vm-nav-title'>CloudProxy01</span>
+  <span class='vm-nav-meta'>Unknown · INFO</span>
+  <span class='vm-nav-sub'>N/A</span>
+</button>
+          </div>
+        </div>
+      </aside>
+      <main class='content'>
+        <div class='view-mode-toggle'>
+          <button type='button' class='view-btn active' data-view='ALLVMS'>Show All VMs</button>
+          <button type='button' class='view-btn' data-view='DETAIL'>Single VM Detail</button>
+        </div>
+        <section class='overview-panel active' id='all-vms-panel'>
+          <div class='panel-card'>
+            <h3>All VMs tested</h3>
+            <p class='section-subtitle'>This overview shows every VM currently visible under the selected status filter. Use Open details to jump into the full per-VM report.</p>
+          </div>
+          <div class='overview-grid'>
+            <article class='vm-overview-card PASS' data-status='PASS'>
+  <div class='vm-overview-top'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h3>Telegraf-test01</h3>
+      <p>OS: Windows &#183; User: devops\svc-telegraf &#183; Creds: CSV plaintext</p>
+    </div>
+    <div class='overview-actions'>
+      <span class='badge large PASS'>PASS</span>
+      <button type='button' class='view-vm-btn' data-vm-id='telegraf-test01'>Open details</button>
+    </div>
+  </div>
+  <ul class='mini-check-list'>
+    <li><span class='mini-check-name'>Admin workstation &gt; vCenter on 443</span><span class='badge PASS'>PASS</span></li>
+<li><span class='mini-check-name'>Cloud Proxy target host : CloudProxy01.DevOps.local</span><span class='badge INFO'>INFO</span></li>
+<li><span class='mini-check-name'>vCenter guest OS : Microsoft Windows Server 2022 (64-bit)</span><span class='badge INFO'>INFO</span></li>
+<li><span class='mini-check-name'>Target OS mode selected : Windows</span><span class='badge INFO'>INFO</span></li>
+  </ul>
+</article>
+<article class='vm-overview-card WARN' data-status='WARN'>
+  <div class='vm-overview-top'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h3>Telegraf-test02</h3>
+      <p>OS: Linux &#183; User: user &#183; Creds: CSV plaintext</p>
+    </div>
+    <div class='overview-actions'>
+      <span class='badge large WARN'>WARN</span>
+      <button type='button' class='view-vm-btn' data-vm-id='telegraf-test02'>Open details</button>
+    </div>
+  </div>
+  <ul class='mini-check-list'>
+    <li><span class='mini-check-name'>Admin workstation &gt; vCenter on 443</span><span class='badge PASS'>PASS</span></li>
+<li><span class='mini-check-name'>Cloud Proxy target host : CloudProxy01.DevOps.local</span><span class='badge INFO'>INFO</span></li>
+<li><span class='mini-check-name'>vCenter guest OS : Ubuntu Linux (64-bit)</span><span class='badge INFO'>INFO</span></li>
+<li><span class='mini-check-name'>Target OS mode selected : Linux</span><span class='badge INFO'>INFO</span></li>
+  </ul>
+</article>
+<article class='vm-overview-card WARN' data-status='WARN'>
+  <div class='vm-overview-top'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h3>Telegraf-test03</h3>
+      <p>OS: Linux &#183; User: tester &#183; Creds: AlternateCredentialFile</p>
+    </div>
+    <div class='overview-actions'>
+      <span class='badge large WARN'>WARN</span>
+      <button type='button' class='view-vm-btn' data-vm-id='telegraf-test03'>Open details</button>
+    </div>
+  </div>
+  <ul class='mini-check-list'>
+    <li><span class='mini-check-name'>Admin workstation &gt; vCenter on 443</span><span class='badge PASS'>PASS</span></li>
+<li><span class='mini-check-name'>Cloud Proxy target host : CloudProxy01.DevOps.local</span><span class='badge INFO'>INFO</span></li>
+<li><span class='mini-check-name'>vCenter guest OS : Ubuntu Linux (64-bit)</span><span class='badge INFO'>INFO</span></li>
+<li><span class='mini-check-name'>Target OS mode selected : Linux</span><span class='badge INFO'>INFO</span></li>
+  </ul>
+</article>
+<article class='vm-overview-card INFO' data-status='INFO'>
+  <div class='vm-overview-top'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h3>CloudProxy01</h3>
+      <p></p>
+    </div>
+    <div class='overview-actions'>
+      <span class='badge large INFO'>INFO</span>
+      <button type='button' class='view-vm-btn' data-vm-id='CloudProxy01'>Open details</button>
+    </div>
+  </div>
+  <ul class='mini-check-list'>
+    <li><span class='mini-check-name'>Guest execution</span><span class='badge PASS'>PASS</span></li>
+<li><span class='mini-check-name'>Cloud Proxy &gt; vCenter on 443</span><span class='badge PASS'>PASS</span></li>
+<li><span class='mini-check-name'>Cloud Proxy &gt; ESXi on 443</span><span class='badge PASS'>PASS</span></li>
+<li><span class='mini-check-name'>Guest execution</span><span class='badge PASS'>PASS</span></li>
+  </ul>
+</article>
+          </div>
+        </section>
+        <section class='vm-panel' id='panel-telegraf-test01' data-status='PASS'>
+  <div class='panel-header'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h2>Telegraf-test01</h2>
+      <p class='panel-subtitle'>vCenter guest metadata</p>
+    </div>
+    <span class='badge large PASS'>PASS</span>
+  </div>
+
+  <div class='detail-grid'>
+    <div class='detail-card'><div class='detail-label'>Detected OS</div><div class='detail-value'>Windows</div></div>
+<div class='detail-card'><div class='detail-label'>Guest</div><div class='detail-value'>Microsoft Windows Server 2022 (64-bit)</div></div>
+<div class='detail-card'><div class='detail-label'>Credential Source</div><div class='detail-value'>CSV plaintext</div></div>
+<div class='detail-card'><div class='detail-label'>Guest User</div><div class='detail-value'>devops\svc-telegraf</div></div>
+<div class='detail-card'><div class='detail-label'>Cloud Proxy</div><div class='detail-value'>CloudProxy01</div></div>
+<div class='detail-card'><div class='detail-label'>Use Sudo</div><div class='detail-value'>False</div></div>
+  </div>
+
+  <div class='panel-card'>
+    <h3>Validation Checks</h3>
+    <div class='table-wrap'>
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Status</th><th>Message</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr class='PASS'>
+  <td>Fleet summary</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td>Guest user: devops\svc-telegraf | Requested OS: Auto | Detected OS: Windows | Use sudo: False | Cloud Proxy: CloudProxy01 | Credential source: CSV plaintext</td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Admin workstation &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Cloud Proxy target host : CloudProxy01.DevOps.local</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>vCenter guest OS : Microsoft Windows Server 2022 (64-bit)</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Target OS mode selected : Windows</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Cloud Proxy bootstrap path : /downloads/salt/telegraf-utils.ps1</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Owning ESXi host discovered :  esx-01.devops.local</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Guest execution</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; ESXi on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; Cloud Proxy on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; Cloud Proxy bootstrap download</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <div class='panel-card'>
+  <button type='button' class='raw-toggle' data-target='raw-telegraf-test01'>Show Raw Output</button>
+  <pre id='raw-telegraf-test01' class='raw-output hidden'>[PASS] Admin workstation &gt; vCenter on 443
+[PASS] Connected to vCenter-01.devops.local as VSPHERE.LOCAL\Administrator
+[INFO] VM found: Telegraf-Test01 (PowerState=PoweredOn)
+[INFO] VMware Tools status: guestToolsRunning / guestToolsCurrent
+[PASS] Target VM is currently running on ESXi host:  esx-01.devops.local
+[PASS] Invoke-VMScript on target VM succeeded (ExitCode=0)
+
+--- Target Guest Script Output ---
+devops\svc-telegraf
+Telegraf-Test01
+2026-03-13T20:42:39
+RESULT PASS TARGET&gt;VCENTER:443
+RESULT PASS TARGET&gt;ESXI:443
+RESULT PASS TARGET&gt;CLOUDPROXY:443
+RESULT PASS TARGET&gt;CLOUDPROXY:BOOTSTRAP
+
+----------------------------------
+[PASS] Cloud Proxy VM found: CloudProxy01 (PowerState=PoweredOn)
+[INFO] Cloud Proxy VMware Tools status: guestToolsRunning / guestToolsUnmanaged
+
+--- Cloud Proxy Guest Script Output ---
+Testing from Cloud Proxy guest
+RESULT PASS vCenter-01.devops.local:443
+RESULT PASS esx-01.devops.local:443
+
+---------------------------------------
+
+==================== Validation Summary ====================
+
+Telegraf VM target : Telegraf-test01
+PASS : Admin workstation &gt; vCenter on 443
+INFO : Cloud Proxy target host : CloudProxy01.DevOps.local
+INFO : vCenter guest OS : Microsoft Windows Server 2022 (64-bit)
+INFO : Target OS mode selected : Windows
+INFO : Cloud Proxy bootstrap path : /downloads/salt/telegraf-utils.ps1
+PASS : Owning ESXi host discovered :  esx-01.devops.local
+PASS : Guest execution
+PASS : Telegraf VM target &gt; vCenter on 443
+PASS : Telegraf VM target &gt; ESXi on 443
+PASS : Telegraf VM target &gt; Cloud Proxy on 443
+PASS : Telegraf VM target &gt; Cloud Proxy bootstrap download
+
+Cloud Proxy : CloudProxy01
+PASS : Guest execution
+PASS : Cloud Proxy &gt; vCenter on 443
+PASS : Cloud Proxy &gt; ESXi on 443
+[INFO] Disconnected from vCenter</pre>
+</div>
+</section>
+<section class='vm-panel' id='panel-telegraf-test02' data-status='WARN'>
+  <div class='panel-header'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h2>Telegraf-test02</h2>
+      <p class='panel-subtitle'>vCenter guest metadata</p>
+    </div>
+    <span class='badge large WARN'>WARN</span>
+  </div>
+
+  <div class='detail-grid'>
+    <div class='detail-card'><div class='detail-label'>Detected OS</div><div class='detail-value'>Linux</div></div>
+<div class='detail-card'><div class='detail-label'>Guest</div><div class='detail-value'>Ubuntu Linux (64-bit)</div></div>
+<div class='detail-card'><div class='detail-label'>Credential Source</div><div class='detail-value'>CSV plaintext</div></div>
+<div class='detail-card'><div class='detail-label'>Guest User</div><div class='detail-value'>user</div></div>
+<div class='detail-card'><div class='detail-label'>Cloud Proxy</div><div class='detail-value'>CloudProxy01</div></div>
+<div class='detail-card'><div class='detail-label'>Use Sudo</div><div class='detail-value'>False</div></div>
+  </div>
+
+  <div class='panel-card'>
+    <h3>Validation Checks</h3>
+    <div class='table-wrap'>
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Status</th><th>Message</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr class='WARN'>
+  <td>Fleet summary</td>
+  <td><span class='badge WARN'>WARN</span></td>
+  <td>Guest user: user | Requested OS: Auto | Detected OS: Linux | Use sudo: False | Cloud Proxy: CloudProxy01 | Credential source: CSV plaintext</td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Admin workstation &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Cloud Proxy target host : CloudProxy01.DevOps.local</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>vCenter guest OS : Ubuntu Linux (64-bit)</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Target OS mode selected : Linux</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Cloud Proxy bootstrap path : /downloads/salt/telegraf-utils.sh</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Owning ESXi host discovered :  esx-01.devops.local</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Guest execution</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux guest reported OS : Ubuntu 24.04.4 LTS</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; ESXi on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; Cloud Proxy on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux bootstrap tool : wget</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux bootstrap exit code : 5</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux bootstrap insecure exit code : 0</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='WARN'>
+  <td>Telegraf VM target &gt; Cloud Proxy bootstrap download (PASS+INSECURE)</td>
+  <td><span class='badge WARN'>WARN</span></td>
+  <td>The Linux guest could download the bootstrap URL only when HTTPS certificate validation was bypassed.</td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <div class='panel-card'>
+  <button type='button' class='raw-toggle' data-target='raw-telegraf-test02'>Show Raw Output</button>
+  <pre id='raw-telegraf-test02' class='raw-output hidden'>[PASS] Admin workstation &gt; vCenter on 443
+[PASS] Connected to vCenter-01.devops.local as VSPHERE.LOCAL\Administrator
+[INFO] VM found: Telegraf-test02 (PowerState=PoweredOn)
+[INFO] VMware Tools status: guestToolsRunning / guestToolsUnmanaged
+[PASS] Target VM is currently running on ESXi host:  esx-01.devops.local
+[PASS] Invoke-VMScript on target VM succeeded (ExitCode=0)
+
+--- Target Guest Script Output ---
+RESULT INFO TARGETOS:LINUX
+user
+Telegraf-test02
+2026-03-13T20:42:51+00:00
+RESULT INFO TARGETOS:Ubuntu 24.04.4 LTS
+RESULT PASS TARGET&gt;VCENTER:443
+RESULT PASS TARGET&gt;ESXI:443
+RESULT PASS TARGET&gt;CLOUDPROXY:443
+RESULT INFO TARGET&gt;BOOTSTRAP:TOOL:wget
+RESULT INFO TARGET&gt;BOOTSTRAP:EXITCODE:5
+RESULT INFO TARGET&gt;BOOTSTRAP:INSECURE_EXITCODE:0
+RESULT WARN TARGET&gt;CLOUDPROXY:BOOTSTRAP_INSECURE
+
+----------------------------------
+[PASS] Cloud Proxy VM found: CloudProxy01 (PowerState=PoweredOn)
+[INFO] Cloud Proxy VMware Tools status: guestToolsRunning / guestToolsUnmanaged
+
+--- Cloud Proxy Guest Script Output ---
+Testing from Cloud Proxy guest
+RESULT PASS vCenter-01.devops.local:443
+RESULT PASS esx-01.devops.local:443
+
+---------------------------------------
+
+==================== Validation Summary ====================
+
+Telegraf VM target : Telegraf-test02
+PASS : Admin workstation &gt; vCenter on 443
+INFO : Cloud Proxy target host : CloudProxy01.DevOps.local
+INFO : vCenter guest OS : Ubuntu Linux (64-bit)
+INFO : Target OS mode selected : Linux
+INFO : Cloud Proxy bootstrap path : /downloads/salt/telegraf-utils.sh
+PASS : Owning ESXi host discovered :  esx-01.devops.local
+PASS : Guest execution
+INFO : Linux guest reported OS : Ubuntu 24.04.4 LTS
+PASS : Telegraf VM target &gt; vCenter on 443
+PASS : Telegraf VM target &gt; ESXi on 443
+PASS : Telegraf VM target &gt; Cloud Proxy on 443
+INFO : Linux bootstrap tool : wget
+INFO : Linux bootstrap exit code : 5
+INFO : Linux bootstrap insecure exit code : 0
+WARN : Telegraf VM target &gt; Cloud Proxy bootstrap download (PASS+INSECURE)
+Message: The Linux guest could download the bootstrap URL only when HTTPS certificate validation was bypassed.
+
+Cloud Proxy : CloudProxy01
+PASS : Guest execution
+PASS : Cloud Proxy &gt; vCenter on 443
+PASS : Cloud Proxy &gt; ESXi on 443
+
+Suggestions:
+Telegraf VM target : Telegraf-test02
+Test: Telegraf VM target &gt; Cloud Proxy bootstrap download (PASS+INSECURE)
+The Linux guest could download the bootstrap URL only when HTTPS certificate validation was bypassed. Trust the Cloud Proxy certificate on the guest or replace it with a certificate chain the guest already trusts.
+[INFO] Disconnected from vCenter</pre>
+</div>
+</section>
+<section class='vm-panel' id='panel-telegraf-test03' data-status='WARN'>
+  <div class='panel-header'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h2>Telegraf-test03</h2>
+      <p class='panel-subtitle'>vCenter guest metadata</p>
+    </div>
+    <span class='badge large WARN'>WARN</span>
+  </div>
+
+  <div class='detail-grid'>
+    <div class='detail-card'><div class='detail-label'>Detected OS</div><div class='detail-value'>Linux</div></div>
+<div class='detail-card'><div class='detail-label'>Guest</div><div class='detail-value'>Ubuntu Linux (64-bit)</div></div>
+<div class='detail-card'><div class='detail-label'>Credential Source</div><div class='detail-value'>AlternateCredentialFile</div></div>
+<div class='detail-card'><div class='detail-label'>Guest User</div><div class='detail-value'>tester</div></div>
+<div class='detail-card'><div class='detail-label'>Cloud Proxy</div><div class='detail-value'>CloudProxy01</div></div>
+<div class='detail-card'><div class='detail-label'>Use Sudo</div><div class='detail-value'>False</div></div>
+  </div>
+
+  <div class='panel-card'>
+    <h3>Validation Checks</h3>
+    <div class='table-wrap'>
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Status</th><th>Message</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr class='WARN'>
+  <td>Fleet summary</td>
+  <td><span class='badge WARN'>WARN</span></td>
+  <td>Guest user: tester | Requested OS: Auto | Detected OS: Linux | Use sudo: False | Cloud Proxy: CloudProxy01 | Credential source: AlternateCredentialFile | Credential detail: Telegraf-test03.xml</td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Admin workstation &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Cloud Proxy target host : CloudProxy01.DevOps.local</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>vCenter guest OS : Ubuntu Linux (64-bit)</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Target OS mode selected : Linux</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Cloud Proxy bootstrap path : /downloads/salt/telegraf-utils.sh</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Owning ESXi host discovered :  esx-01.devops.local</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Guest execution</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux guest reported OS : Ubuntu 24.04.4 LTS</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; ESXi on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Telegraf VM target &gt; Cloud Proxy on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux bootstrap tool : wget</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux bootstrap exit code : 5</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='INFO'>
+  <td>Linux bootstrap insecure exit code : 0</td>
+  <td><span class='badge INFO'>INFO</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='WARN'>
+  <td>Telegraf VM target &gt; Cloud Proxy bootstrap download (PASS+INSECURE)</td>
+  <td><span class='badge WARN'>WARN</span></td>
+  <td>The Linux guest could download the bootstrap URL only when HTTPS certificate validation was bypassed.</td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <div class='panel-card'>
+  <button type='button' class='raw-toggle' data-target='raw-telegraf-test03'>Show Raw Output</button>
+  <pre id='raw-telegraf-test03' class='raw-output hidden'>[PASS] Admin workstation &gt; vCenter on 443
+[PASS] Connected to vCenter-01.devops.local as VSPHERE.LOCAL\Administrator
+[INFO] VM found: telegraf-test03 (PowerState=PoweredOn)
+[INFO] VMware Tools status: guestToolsRunning / guestToolsUnmanaged
+[PASS] Target VM is currently running on ESXi host:  esx-01.devops.local
+[PASS] Invoke-VMScript on target VM succeeded (ExitCode=0)
+
+--- Target Guest Script Output ---
+RESULT INFO TARGETOS:LINUX
+tester
+telegraf-test03
+2026-03-13T20:43:03+00:00
+RESULT INFO TARGETOS:Ubuntu 24.04.4 LTS
+RESULT PASS TARGET&gt;VCENTER:443
+RESULT PASS TARGET&gt;ESXI:443
+RESULT PASS TARGET&gt;CLOUDPROXY:443
+RESULT INFO TARGET&gt;BOOTSTRAP:TOOL:wget
+RESULT INFO TARGET&gt;BOOTSTRAP:EXITCODE:5
+RESULT INFO TARGET&gt;BOOTSTRAP:INSECURE_EXITCODE:0
+RESULT WARN TARGET&gt;CLOUDPROXY:BOOTSTRAP_INSECURE
+
+----------------------------------
+[PASS] Cloud Proxy VM found: CloudProxy01 (PowerState=PoweredOn)
+[INFO] Cloud Proxy VMware Tools status: guestToolsRunning / guestToolsUnmanaged
+
+--- Cloud Proxy Guest Script Output ---
+Testing from Cloud Proxy guest
+RESULT PASS vCenter-01.devops.local:443
+RESULT PASS esx-01.devops.local:443
+
+---------------------------------------
+
+==================== Validation Summary ====================
+
+Telegraf VM target : Telegraf-test03
+PASS : Admin workstation &gt; vCenter on 443
+INFO : Cloud Proxy target host : CloudProxy01.DevOps.local
+INFO : vCenter guest OS : Ubuntu Linux (64-bit)
+INFO : Target OS mode selected : Linux
+INFO : Cloud Proxy bootstrap path : /downloads/salt/telegraf-utils.sh
+PASS : Owning ESXi host discovered :  esx-01.devops.local
+PASS : Guest execution
+INFO : Linux guest reported OS : Ubuntu 24.04.4 LTS
+PASS : Telegraf VM target &gt; vCenter on 443
+PASS : Telegraf VM target &gt; ESXi on 443
+PASS : Telegraf VM target &gt; Cloud Proxy on 443
+INFO : Linux bootstrap tool : wget
+INFO : Linux bootstrap exit code : 5
+INFO : Linux bootstrap insecure exit code : 0
+WARN : Telegraf VM target &gt; Cloud Proxy bootstrap download (PASS+INSECURE)
+Message: The Linux guest could download the bootstrap URL only when HTTPS certificate validation was bypassed.
+
+Cloud Proxy : CloudProxy01
+PASS : Guest execution
+PASS : Cloud Proxy &gt; vCenter on 443
+PASS : Cloud Proxy &gt; ESXi on 443
+
+Suggestions:
+Telegraf VM target : Telegraf-test03
+Test: Telegraf VM target &gt; Cloud Proxy bootstrap download (PASS+INSECURE)
+The Linux guest could download the bootstrap URL only when HTTPS certificate validation was bypassed. Trust the Cloud Proxy certificate on the guest or replace it with a certificate chain the guest already trusts.
+[INFO] Disconnected from vCenter</pre>
+</div>
+</section>
+<section class='vm-panel' id='panel-CloudProxy01' data-status='INFO'>
+  <div class='panel-header'>
+    <div>
+      <div class='eyebrow'>Virtual Machine</div>
+      <h2>CloudProxy01</h2>
+      <p class='panel-subtitle'></p>
+    </div>
+    <span class='badge large INFO'>INFO</span>
+  </div>
+
+  <div class='detail-grid'>
+    <div class='detail-card'><div class='detail-label'>Detected OS</div><div class='detail-value'>Unknown</div></div>
+<div class='detail-card'><div class='detail-label'>Guest</div><div class='detail-value'>Unknown</div></div>
+<div class='detail-card'><div class='detail-label'>Credential Source</div><div class='detail-value'>N/A</div></div>
+<div class='detail-card'><div class='detail-label'>Guest User</div><div class='detail-value'>N/A</div></div>
+<div class='detail-card'><div class='detail-label'>Cloud Proxy</div><div class='detail-value'>N/A</div></div>
+<div class='detail-card'><div class='detail-label'>Use Sudo</div><div class='detail-value'>N/A</div></div>
+  </div>
+
+  <div class='panel-card'>
+    <h3>Validation Checks</h3>
+    <div class='table-wrap'>
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Status</th><th>Message</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr class='PASS'>
+  <td>Guest execution</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Cloud Proxy &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Cloud Proxy &gt; ESXi on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Guest execution</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Cloud Proxy &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Cloud Proxy &gt; ESXi on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Guest execution</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Cloud Proxy &gt; vCenter on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+<tr class='PASS'>
+  <td>Cloud Proxy &gt; ESXi on 443</td>
+  <td><span class='badge PASS'>PASS</span></td>
+  <td></td>
+  <td>GuestOpsFleetSummary-20260313-204315.json</td>
+</tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  
+</section>
+      </main>
+    </section>
+
+    <div class='footer-note'>Row-level checks are derived from the fleet summary JSON and the raw per-VM output block. Endpoint data sources are also supported when present.</div>
+  </div>
+  <script>
+(function(){
+  const navItems = Array.from(document.querySelectorAll('.vm-nav-item'));
+  const panels = Array.from(document.querySelectorAll('.vm-panel'));
+  const filterButtons = Array.from(document.querySelectorAll('.filter-btn'));
+  const viewButtons = Array.from(document.querySelectorAll('.view-btn'));
+  const overviewPanel = document.getElementById('all-vms-panel');
+  const overviewCards = Array.from(document.querySelectorAll('.vm-overview-card'));
+  const openVmButtons = Array.from(document.querySelectorAll('.view-vm-btn'));
+
+  function activateVm(vmId){
+    navItems.forEach(btn => btn.classList.toggle('active', btn.dataset.vmId === vmId));
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + vmId));
+  }
+
+  function setView(mode, preferredVmId){
+    const showAll = mode === 'ALLVMS';
+    if (overviewPanel) {
+      overviewPanel.classList.toggle('active', showAll);
+      overviewPanel.style.display = showAll ? 'flex' : 'none';
+    }
+    viewButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === mode));
+    if (!showAll) {
+      const targetId = preferredVmId || (navItems.find(x => x.style.display !== 'none') || navItems[0])?.dataset.vmId;
+      if (targetId) activateVm(targetId);
+      panels.forEach(panel => {
+        panel.style.display = panel.classList.contains('active') ? 'flex' : 'none';
+      });
+    }
+    else {
+      panels.forEach(panel => {
+        panel.classList.remove('active');
+        panel.style.display = 'none';
+      });
+    }
+  }
+
+  navItems.forEach(btn => {
+    btn.addEventListener('click', () => {
+      activateVm(btn.dataset.vmId);
+      setView('DETAIL', btn.dataset.vmId);
+    });
+  });
+
+  openVmButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      activateVm(btn.dataset.vmId);
+      setView('DETAIL', btn.dataset.vmId);
+      const activeNav = navItems.find(x => x.dataset.vmId === btn.dataset.vmId);
+      if (activeNav) activeNav.scrollIntoView({block:'nearest'});
+    });
+  });
+
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wanted = btn.dataset.filter;
+      filterButtons.forEach(x => x.classList.toggle('active', x === btn));
+      let firstVisible = null;
+      navItems.forEach(item => {
+        const show = wanted === 'ALL' || item.dataset.status === wanted;
+        item.style.display = show ? '' : 'none';
+        if (show && !firstVisible) firstVisible = item;
+      });
+      overviewCards.forEach(card => {
+        const show = wanted === 'ALL' || card.dataset.status === wanted;
+        card.style.display = show ? '' : 'none';
+      });
+      if (document.querySelector('.view-btn.active')?.dataset.view !== 'ALLVMS') {
+        if (firstVisible) {
+          activateVm(firstVisible.dataset.vmId);
+          setView('DETAIL', firstVisible.dataset.vmId);
+        }
+      }
+    });
+  });
+
+  viewButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setView(btn.dataset.view);
+    });
+  });
+
+  document.querySelectorAll('.raw-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      const hidden = target.classList.toggle('hidden');
+      btn.textContent = hidden ? 'Show Raw Output' : 'Hide Raw Output';
+    });
+  });
+
+  if (navItems.length > 0) {
+    activateVm(navItems[0].dataset.vmId);
+  }
+  setView('ALLVMS');
+})();
+</script>
+</body>
+</html>
