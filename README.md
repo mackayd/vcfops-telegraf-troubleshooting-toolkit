@@ -1,384 +1,473 @@
-# VCF Operations / Aria Operations Telegraf Troubleshooting Toolkit (Windows and Linux)
+# VCF Operations Telegraf Toolkit v3.0
 
-**PowerShell toolkit for troubleshooting product-managed Telegraf agent deployment** in **VCF Operations / Aria Operations** environments across Windows and Linux endpoints.
+PowerShell toolkit for troubleshooting **product-managed Telegraf agent deployment** in **VCF Operations / Aria Operations** environments across **Windows** and **Linux** endpoints.
 
-This toolkit helps isolate which stage of the **product-managed Telegraf deployment flow** is failing by testing the same dependencies the product relies on (network, DNS, TLS, Guest Operations, bootstrap path, and endpoint execution), while still keeping the final deployment method **product-managed**.
+This toolkit helps isolate where deployment is failing by testing the same dependency chain the platform relies on: **vCenter Guest Operations, VMware Tools, Cloud Proxy reachability, DNS, HTTPS/TLS trust, bootstrap download paths, and local endpoint execution**.
 
 <p align="left">
   <img alt="PowerShell" src="https://img.shields.io/badge/PowerShell-7+-blue">
-  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20PowerCLI-lightgrey">
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20PowerCLI-lightgrey">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
-  <img alt="Status" src="https://img.shields.io/badge/Status-Stable-brightgreen">
+  <img alt="Status" src="https://img.shields.io/badge/Status-v3.0-blueviolet">
 </p>
 
 ---
 
-## Purpose
+## Why this toolkit exists
 
-When a product-managed Telegraf deployment fails, the issue is often not “Telegraf” itself — it is usually one of the stages *around* it:
+When a product-managed Telegraf deployment fails, the root cause is often not “Telegraf” itself. The failure usually sits somewhere in the path around it, such as:
 
-- **vCenter Guest Operations** (VMware Tools / guest credentials / permissions)
-- **Cloud Proxy reachability** (ports, routing, firewall)
-- **TLS / HTTPS trust** (certificate chain, SSL inspection, FQDN mismatch)
-- **Managed control path** (registration/config push ports)
-- **Endpoint security / policy** (EDR, AppLocker, Defender ASR)
-- **DNS resolution** (wrong interface/IP, split DNS, stale records)
+- **vCenter Guest Operations** permissions, credentials, or VMware Tools health
+- **Cloud Proxy connectivity** on the required ports
+- **DNS resolution** or hostname mismatches
+- **HTTPS/TLS trust** problems, certificate chain issues, or SSL inspection
+- **Bootstrap delivery** failures for the expected Cloud Proxy path
+- **Endpoint-side execution controls** such as AV, EDR, policy, or sudo restrictions
 
-This toolkit gives you a repeatable way to validate each layer, compare failing vs known-good hosts, and collect evidence for platform, firewall/security teams, or Broadcom support.
+This toolkit gives you a repeatable way to validate those layers, collect evidence, and generate a report that can be shared with platform, firewall, security, or support teams.
 
-![Alt text for accessibility](Telegraf-toolkit-workflow.png)
-
----
-
-## Scope and supportability note
-
-> **Important**
->
-> This toolkit is intended for **troubleshooting and diagnostics** of **product-managed Telegraf deployment**.
->
-> It is **not** a replacement for the supported product-managed deployment workflow in VCF / Aria Operations.
-
-The included bootstrap probe script is a **semi-manual diagnostic tool** to test the bootstrap path and surrounding dependencies. Once the root cause is identified and fixed, the **final install should still be performed from the VCF/Aria Operations UI**.
+![Toolkit workflow](images/Telegraf-toolkit-workflow.png)
 
 ---
 
-## What’s included (v2.1.1)
+## What changed in v3.0
 
-### Core endpoint diagnostics (run on target Windows or Linux VM)
-- **`Test-VcfOpsTelegrafEndpoint.ps1`**
-  - Tests DNS resolution to Cloud Proxy
-  - Tests TCP ports (**443, 8443, 4505, 4506**)
-  - Tests HTTPS/TLS reachability
-  - Checks related services/processes (Telegraf/UCP/Salt patterns)
-  - Outputs console + JSON + TXT summary
+Version 3.0 reflects a substantial refresh of the toolkit:
 
-- **`Collect-VcfOpsTelegrafDeployDiag.ps1`**
-  - Collects post-failure evidence (services, processes, logs, networking, firewall/proxy indicators)
-  - Produces a zipped diagnostic bundle for analysis/support cases
+- **Guest Ops fleet testing** now supports Windows and Linux targets from the same CSV
+- **Credential handling** supports:
+  - plaintext CSV credentials when you accept the risk
+  - DPAPI-protected credential files
+  - per-VM credential overrides using `AltCredFile`
+- **Cloud Proxy hostname logic** no longer assumes a fixed DNS suffix and can use guest-reported hostname/FQDN data
+- **HTML reporting** now supports the newer interactive dashboard style with:
+  - summary graphics
+  - clickable VM drill-down
+  - Show All VMs overview
+  - dark blue theme
+- **Guest Ops fleet output** and **vCenter fleet output** can both be parsed by the same HTML report script
+- Help output has been improved across the scripts with `-h`, `-Full`, and `-Examples`
+
+Because the report UX and Guest Ops workflow changed significantly, this release is documented as **v3.0**.
 
 ---
 
-### Guest Operations validation (run from admin workstation with PowerCLI)
-- **`Test-VCenterGuestOpsForTelegraf.ps1`**
+## Repository layout
+
+```text
+.
+├── Invoke-VcfOpsFleetGuestOps.ps1
+├── New-VcfOpsTelegrafHtmlReport.ps1
+├── Save-VcfOpsTelegrafCredential.ps1
+├── Test-VCenterGuestOpsForTelegraf.ps1
+├── ExampleSingleVMtestingCommands.png
+├── Example-Fleet-targets.csv
+├── Example-Fleet-Report.png
+├── Example-GuestFleetReport.html
+├── Example-VcfFleetReport.gif
+├── Telegraf-toolkit-workflow.png
+├── toolkit-report-example.png
+└── EndPointTests
+    ├── Collect-VcfOpsTelegrafDeployDiag.ps1
+    ├── Invoke-VcfOpsTelegrafBootstrapProbe.ps1
+    └── Test-VcfOpsTelegrafEndpoint.ps1
+```
+
+> The endpoint-executed scripts are stored in the `EndPointTests` folder for organisation, but when scripts refer to each other in help text or workflow examples they are referenced by script name only.
+
+---
+
+## Toolkit workflow at a glance
+
+The toolkit supports two main ways of working.
+
+### 1. Single VM / deep-dive troubleshooting
+
+Use this when you want to validate one VM thoroughly.
+
+- `Test-VCenterGuestOpsForTelegraf.ps1`
   - Connects to vCenter
-  - Validates VM power state + VMware Tools status
-  - Runs a harmless command inside the guest using `Invoke-VMScript`
-  - Helps isolate whether the failure occurs **before** bootstrap launch
+  - Uses VMware Guest Operations to run tests inside a single guest
+  - Auto-detects Windows or Linux when requested
+  - Can also validate Cloud Proxy guest-side connectivity
 
-- **`Test-VCenterGuestOpsFleetForTelegraf.ps1`**
-  - CSV-driven Guest Ops validation across multiple VMs
+- `Test-VcfOpsTelegrafEndpoint.ps1`
+  - Runs locally on an endpoint
+  - Tests endpoint-to-Cloud Proxy connectivity, HTTPS, DNS, and local indicators
 
----
+- `Invoke-VcfOpsTelegrafBootstrapProbe.ps1`
+  - Focused local diagnostic for the bootstrap URL path
+  - Useful when you want to isolate transport/download behaviour separately
 
-### Semi-manual bootstrap diagnostics (troubleshooting use)
-- **`Invoke-VcfOpsTelegrafBootstrapProbe.ps1`**
-  - Diagnostic probe for testing bootstrap-style download/execution path from the endpoint
-  - Helps determine whether the issue is:
-    - Guest Ops launch/orchestration
-    - Bootstrap transport/download
-    - Endpoint execution/security
-    - Cloud Proxy registration/control path
+- `Collect-VcfOpsTelegrafDeployDiag.ps1`
+  - Collects a local Windows diagnostic bundle after failure or warning conditions
 
-> **Warning**
->
-> This script is for diagnostics and controlled testing. It is not intended to replace product-managed deployment.
+### 2. Fleet-level Guest Ops validation and reporting
 
----
+Use this when you want a single workflow across many VMs.
 
-### Fleet execution / reporting / comparison
-- **`Invoke-VcfOpsTelegrafFleetRunner.ps1`**
-  - Runs endpoint checks across multiple hosts from a CSV target list
+- `Invoke-VcfOpsFleetGuestOps.ps1`
+  - Reads a CSV of VM targets
+  - Auto-detects Windows or Linux per VM using vCenter guest metadata
+  - Uses VMware Tools / `Invoke-VMScript` to run the correct guest-side tests
+  - Produces fleet CSV and JSON outputs
 
-- **`Invoke-VcfOpsTelegrafFleetRunner-GuestOps.ps1`**
-  - Runs fleet endpoint checks through VMware Tools / Guest Operations instead of WinRM
-  - Supports Windows guests with PowerShell and Linux guests with `pwsh` or a native Bash fallback
-
-- **`New-VcfOpsTelegrafHtmlReport.ps1`**
-  - Builds a consolidated HTML report/dashboard from collected JSON outputs
-   ![Alt text for accessibility](toolkit-report-example.png)
-
-- **`Invoke-VcfOpsTelegrafCompareMode.ps1`**
-  - Wrapper for comparing a **known-good** host to failing hosts
-
-- **`Export-VcfOpsTelegrafKnownGoodDiff.ps1`**
-  - Exports host comparison differences to CSV for sharing with platform/firewall/security teams
+- `New-VcfOpsTelegrafHtmlReport.ps1`
+  - Converts compatible fleet JSON/CSV outputs into an interactive HTML report
+  - Works with both Guest Ops fleet data and vCenter fleet-style data
 
 ---
 
-### Credential helper (for repeated Guest Ops testing)
-- **`Save-VcfOpsTelegrafCredential.ps1`**
-  - Helper for securely capturing/storing credentials for repeated testing workflows
+## Core scripts
 
-> **Tip**
->
-> Align usage with your organisation’s credential handling policy and least-privilege standards.
+### `Invoke-VcfOpsFleetGuestOps.ps1`
+
+The main **fleet Guest Ops runner**.
+
+What it does:
+
+- Connects to vCenter
+- Reads a CSV of targets
+- Determines whether each VM is Windows or Linux
+- Resolves the Cloud Proxy hostname or FQDN
+- Uses VMware Guest Operations to run:
+  - PowerShell inside Windows guests
+  - Bash inside Linux guests
+- Tests connectivity and bootstrap behaviour
+- Produces:
+  - `GuestOpsFleetSummary-<timestamp>.json`
+  - `GuestOpsFleetSummary-<timestamp>.csv`
+
+This is the primary script to use when you want fleet-wide testing and HTML-ready output.
+
+### `Test-VCenterGuestOpsForTelegraf.ps1`
+
+The main **single-VM Guest Ops validator**.
+
+What it does:
+
+- Connects to vCenter
+- Validates one target VM in detail
+- Uses VMware Tools guest metadata to determine Windows or Linux when `-TargetOs Auto` is used
+- Executes a guest-side test script with `Invoke-VMScript`
+- Optionally validates Cloud Proxy guest-side connectivity as well
+- Prints a detailed grouped validation summary
+
+Use this when you want the most detailed troubleshooting output for a single VM.
+
+### `New-VcfOpsTelegrafHtmlReport.ps1`
+
+The **interactive HTML report generator**.
+
+What it does:
+
+- Reads a compatible fleet summary JSON/CSV file, or a folder containing supported result files
+- Builds a dark-blue dashboard style HTML report
+- Supports:
+  - summary counters
+  - status graphics
+  - Show All VMs view
+  - single-VM drill-down view
+  - raw output expansion
+
+### `Save-VcfOpsTelegrafCredential.ps1`
+
+Creates **DPAPI-protected credential files** for later use by the fleet runner.
+
+What it does:
+
+- Prompts with `Get-Credential`
+- Saves the credential to CLIXML with `Export-Clixml`
+- On Windows, protects the password using DPAPI for the current Windows user on the current machine
+
+This is the preferred way to avoid storing guest passwords in plaintext in the CSV.
 
 ---
 
-## Recommended troubleshooting workflow (single host)
-> **Example Output**
-> ![Alt text for accessibility](ExampleSingleVMtestingCommands.png)
-### 1) Run endpoint precheck (on target Windows or Linux VM)
+## Endpoint-executed scripts
+
+### `Test-VcfOpsTelegrafEndpoint.ps1`
+
+Runs directly on a Windows or Linux endpoint.
+
+What it does:
+
+- Tests DNS resolution to the Cloud Proxy FQDN
+- Tests TCP connectivity to key Cloud Proxy ports
+- Tests HTTPS reachability
+- Performs OS-specific local checks
+- Produces endpoint JSON and text output
+
+### `Invoke-VcfOpsTelegrafBootstrapProbe.ps1`
+
+Runs directly on an endpoint.
+
+What it does:
+
+- Tests the bootstrap URL path to the Cloud Proxy
+- Downloads the expected bootstrap payload
+- Can optionally execute the downloaded payload for controlled diagnostics
+- Helps distinguish:
+  - URL/path problems
+  - certificate trust issues
+  - endpoint execution failures
+
+### `Collect-VcfOpsTelegrafDeployDiag.ps1`
+
+Runs locally on a Windows endpoint.
+
+What it does:
+
+- Collects local system, network, firewall, service, process, log, and file evidence
+- Produces a timestamped folder and ZIP bundle
+- Supports post-failure escalation and case building
+
+---
+
+## Credential handling
+
+The fleet workflow supports several credential methods.
+
+### Preferred method: DPAPI-protected credential files
+
+Use `Save-VcfOpsTelegrafCredential.ps1` to create one or more credential files.
+
+Examples:
+
 ```powershell
-.\Test-VcfOpsTelegrafEndpoint.ps1 -CloudProxyFqdn cp01.yourdomain.local`r`n`r`n# Linux endpoint using PowerShell 7`r`n./Test-VcfOpsTelegrafEndpoint.ps1 -CloudProxyFqdn cp01.yourdomain.local -TargetOs Linux
+.\Save-VcfOpsTelegrafCredential.ps1 -Path C:\Secure\Guest-Windows.xml
+.\Save-VcfOpsTelegrafCredential.ps1 -Path C:\Secure\Guest-Linux.xml
+.\Save-VcfOpsTelegrafCredential.ps1 -Path C:\Secure\Telegraf-test03.xml
 ```
 
-**What it tells you**
-- **TCP 4505/4506 FAIL** → likely Cloud Proxy control-path firewall issue
-- **HTTPS 443/8443 FAIL** → likely TLS/cert trust or HTTPS reachability issue
-- All pass → likely issue is Guest Ops, bootstrap execution, or endpoint security/policy
+These can then be used in the fleet runner as:
+
+- `-CredentialFile`
+- `-WindowsCredentialFile`
+- `-LinuxCredentialFile`
+- `AltCredFile` in the CSV for a per-VM override
+
+### Supported fallback: plaintext CSV credentials
+
+If you accept the security tradeoff, the fleet runner can read:
+
+- `GuestUser`
+- `GuestPassword`
+
+from the CSV.
+
+This is easier to use, but the password is then stored in plaintext in the file.
+
+### Credential precedence in the fleet runner
+
+When using `Invoke-VcfOpsFleetGuestOps.ps1`, the effective precedence is:
+
+1. `AltCredFile` from the CSV row
+2. default credential file parameters, such as:
+   - `-CredentialFile`
+   - `-WindowsCredentialFile`
+   - `-LinuxCredentialFile`
+3. `GuestUser` and `GuestPassword` from the CSV
+
+That means a specific VM can use a different account without changing the default Windows or Linux credential for the rest of the run.
 
 ---
 
-### 2) Validate Guest Ops path (PowerCLI from admin workstation)
-```powershell
-$pw = Read-Host "Guest password" -AsSecureString
+## CSV format for fleet Guest Ops testing
 
-.\Test-VCenterGuestOpsForTelegraf.ps1 `
-  -vCenterServer vcsa01.yourdomain.local `
-  -VMName APP-SRV-01 `
-  -GuestUser 'DOMAIN\svc_vmguestops' `
-  -GuestPassword $pw `
-  -CreateTestFile
-```
-
-**What it tells you**
-- If `Invoke-VMScript` fails → focus on:
-  - VMware Tools health
-  - guest credentials / local admin rights
-  - vCenter Guest Operations permissions
-  - endpoint security blocking VMware Tools-launched execution
-- If it passes → move on to bootstrap/control-path diagnostics
-
----
-
-### Linux target example
-```powershell
-$linuxPw = Read-Host "Linux guest password" -AsSecureString
-
-.\Test-VCenterGuestOpsForTelegraf.ps1 `
-  -vCenterServer vcsa01.yourdomain.local `
-  -VMName APP-LINUX-01 `
-  -GuestUser 'telegrafdiag' `
-  -GuestPassword $linuxPw `
-  -TargetOs Linux
-```
-
-This Linux path reuses the same summary flow while switching the guest-side execution to Bash and adding Linux-specific checks for `systemctl`, `pgrep`, common Telegraf paths, and package detection.
-
----
-### 3) (Optional) Run bootstrap probe (diagnostic)
-Run on the target VM to test the bootstrap path more directly:
-
-```powershell
-.\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 `
-  -CloudProxyFqdn cp01.yourdomain.local `
-  -BootstrapPath '/downloads/salt/config-utils.bat' `
-  -DownloadOnly
-```
-
-Then, if appropriate for diagnostic testing:
-
-```powershell
-.\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 `
-  -CloudProxyFqdn cp01.yourdomain.local `
-  -BootstrapPath '/downloads/salt/config-utils.bat' `
-  -ExecuteBootstrap
-```
-
-> **Note**
->
-> The exact bootstrap path varies by environment/build/topology. Confirm the path from your environment logs, UI, or network traces.
-
----
-
-### 4) Retry product-managed deployment in VCF / Aria Operations UI
-Once the failing layer is corrected, retry **Deploy Agent** from the product UI.
-
----
-
-### 5) Collect evidence if it still fails
-Run on the target Windows VM after the failed attempt:
-
-```powershell
-.\Collect-VcfOpsTelegrafDeployDiag.ps1 -LookbackHours 6
-```
-
-This creates a diagnostic bundle suitable for:
-- internal firewall/security/platform teams
-- Broadcom support SRs
-- known-good vs failing comparisons
-
----
-
-## Fleet usage (multi-host diagnostics)
-
-### Endpoint fleet checks (CSV-driven)
-```powershell
-.\Invoke-VcfOpsTelegrafFleetRunner.ps1 `
-  -TargetsCsv .\targets-example.csv `
-  -CloudProxyFqdn cp01.yourdomain.local `
-  -OutputRoot C:\Temp\TelegrafFleet
-```
-
-### Generate consolidated HTML report
-```powershell
-.\New-VcfOpsTelegrafHtmlReport.ps1 `
-  -InputRoot C:\Temp\TelegrafFleet `
-  -OutputPath C:\Temp\TelegrafFleet\VCFOps-Telegraf-Report.html
-```
-
-### Compare known-good vs failing hosts
-```powershell
-.\Invoke-VcfOpsTelegrafCompareMode.ps1 `
-  -KnownGoodHost APP-SRV-BASELINE01 `
-  -InputRoot C:\Temp\TelegrafFleet `
-  -ExportCsv
-```
-
-### Direct diff export to CSV
-```powershell
-.\Export-VcfOpsTelegrafKnownGoodDiff.ps1 `
-  -KnownGoodJson .\KnownGood\EndpointCheck-APP-SRV-BASELINE01.json `
-  -CompareJsonFolder .\Failures `
-  -OutCsv .\KnownGood-Diff.csv
-```
-
----
-
-## Example `targets-example.csv`
+Typical CSV columns:
 
 ```csv
-ComputerName,Notes
-APP-SRV-01,Failing example
-APP-SRV-02,Failing example
-APP-SRV-BASELINE01,Known good
+VMName,GuestUser,GuestPassword,TargetOs,UseSudo,AltCredFile
+Telegraf-test01,devops\DomainAdmin,P@ssw0rd123!,Auto,false,
+Telegraf-test02,user,P@ssw0rd123!,Auto,false,
+Telegraf-test03,,,Auto,false,C:\Secure\Telegraf-test03.xml
 ```
 
-> **Note**
->
-> If your packaged script expects slightly different CSV column names, check the script help (`Get-Help <script> -Full`).
+Column notes:
+
+- `VMName`
+  - target VM inventory name
+- `GuestUser`
+  - guest OS username, used only when no credential-file source applies
+- `GuestPassword`
+  - guest OS password, used only when no credential-file source applies
+- `TargetOs`
+  - `Auto`, `Windows`, or `Linux`
+- `UseSudo`
+  - Linux only; request additional checks using non-interactive sudo where appropriate
+- `AltCredFile`
+  - optional per-VM credential file override
 
 ---
 
-## Typical failure patterns this toolkit helps identify
+## Cloud Proxy hostname logic
 
-### 1) Cloud Proxy control-path ports blocked
-**Symptoms**
-- `TCP 4505` / `TCP 4506` = FAIL
-- `TCP 443` may still work
-- Product-managed install starts but does not complete registration/config push
+The toolkit no longer assumes a fixed DNS suffix such as `house.local`.
 
-**Likely cause**
-- Firewall path blocked between server subnet/VLAN and Cloud Proxy control ports
+For Guest Ops fleet testing:
 
----
+- if `-CloudProxyFqdn` is supplied, that value is used
+- otherwise the fleet runner tries to resolve the Cloud Proxy hostname/FQDN from VMware guest metadata
+- if that is not available, it falls back to the Cloud Proxy VM name
 
-### 2) TLS / certificate trust issue
-**Symptoms**
-- TCP 443/8443 succeeds
-- HTTPS/TLS test fails with trust/name/handshake errors
-- Bootstrap probe fails at download stage
-
-**Likely cause**
-- Endpoint does not trust Cloud Proxy certificate chain / internal CA
-- SSL inspection/proxy interception
-- FQDN mismatch (cert CN/SAN vs requested hostname)
+This makes the toolkit portable across environments where the DNS domain differs from the author’s original lab.
 
 ---
 
-### 3) Guest Operations launch failure (pre-bootstrap)
-**Symptoms**
-- `Invoke-VMScript` fails
-- VMware Tools not running or unhealthy
-- Product-managed deployment fails immediately / never starts bootstrap
+## Example usage
 
-**Likely cause**
-- Invalid guest credentials
-- Missing local admin rights
-- vCenter Guest Operations permission issue
-- EDR/AppLocker/Defender ASR blocking execution launched via VMware Tools
-
----
-
-### 4) Endpoint security / local policy blocking execution
-**Symptoms**
-- Network + Guest Ops tests pass
-- Bootstrap probe fails during execution/service creation
-- Files appear briefly then disappear / are quarantined
-
-**Likely cause**
-- AV/EDR/AppLocker blocking bootstrap/minion/telegraf binaries or scripts
-
----
-
-## Requirements
-
-### On target Windows endpoints
-- PowerShell 7 recommended
-- Local Administrator (recommended for full checks)
-- Ability to run local scripts (`RemoteSigned` or process-scope bypass as appropriate)
-
-### On admin workstation / jump host (Guest Ops scripts)
-- PowerShell PowerShell 7
-- **VCF PowerCLI** module
-- vCenter connectivity
-- Appropriate vCenter permissions
-- Valid guest OS credentials for test execution
-
----
-
-## PowerCLI install (if needed)
+### Run a single-VM Guest Ops test
 
 ```powershell
-Install-Module VCF.PowerCLI -Scope CurrentUser
+$vcPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+$guestPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+$cpPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+
+.\Test-VCenterGuestOpsForTelegraf.ps1 `
+  -vCenterServer 'vCenter-01.devops.local' `
+  -VMName 'Telegraf-test01' `
+  -vCenterUser 'administrator@vsphere.local' `
+  -vCenterPassword $vcPw `
+  -GuestUser 'devops\DomainAdmin' `
+  -GuestPassword $guestPw `
+  -CloudProxyVmName 'CloudProxy-01' `
+  -CloudProxyGuestUser 'root' `
+  -CloudProxyGuestPassword $cpPw
 ```
 
----
+![Single VM example commands](images/ExampleSingleVMtestingCommands.png)
 
-## Script help
-
-Each script includes comment-based help. Examples:
+### Run Guest Ops fleet testing with Windows and Linux credential files
 
 ```powershell
-Get-Help .\Test-VcfOpsTelegrafEndpoint.ps1 -Full
-Get-Help .\Test-VCenterGuestOpsForTelegraf.ps1 -Full
-Get-Help .\Invoke-VcfOpsTelegrafBootstrapProbe.ps1 -Full
+$vcPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+$cpPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+
+.\Invoke-VcfOpsFleetGuestOps.ps1 `
+  -vCenterServer 'vCenter-01.devops.local' `
+  -TargetsCsv '.\targets.csv' `
+  -vCenterUser 'administrator@vsphere.local' `
+  -vCenterPassword $vcPw `
+  -CloudProxyVmName 'CloudProxy-01' `
+  -CloudProxyGuestUser 'root' `
+  -CloudProxyGuestPassword $cpPw `
+  -WindowsCredentialFile 'C:\Secure\Guest-Windows.xml' `
+  -LinuxCredentialFile 'C:\Secure\Guest-Linux.xml' `
+  -OutDir '.'
+```
+
+### Run Guest Ops fleet testing using plaintext CSV credentials
+
+```powershell
+$vcPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+$cpPw = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+
+.\Invoke-VcfOpsFleetGuestOps.ps1 `
+  -vCenterServer 'vCenter-01.devops.local' `
+  -TargetsCsv '.\targets.csv' `
+  -vCenterUser 'administrator@vsphere.local' `
+  -vCenterPassword $vcPw `
+  -CloudProxyVmName 'CloudProxy-01' `
+  -CloudProxyGuestUser 'root' `
+  -CloudProxyGuestPassword $cpPw `
+  -OutDir '.'
+```
+
+### Generate the HTML report
+
+```powershell
+.\New-VcfOpsTelegrafHtmlReport.ps1 `
+  -InputPath .\GuestOpsFleetSummary-20260313-204315.json `
+  -OutputHtml .\GuestFleetReport.html
 ```
 
 ---
 
-## Security and handling guidance
+## Interactive report experience
 
-- Treat generated outputs as potentially sensitive (hostnames, IPs, logs, service names)
-- Review evidence bundles before sharing externally
-- Do not hardcode production credentials into scripts or CSV files
-- Prefer dedicated service accounts and least privilege where possible
+The report output is one of the biggest changes in v3.0.
+
+The HTML report now provides:
+
+- a dark-blue themed dashboard
+- summary graphics and counters
+- status filters
+- a **Show All VMs** view
+- per-VM detail views
+- expandable raw output
+
+### Report overview
+
+![Fleet report example](images/Example-Fleet-Report.png)
+
+### Report interaction preview
+
+![Fleet report animation](images/Example-VcfFleetReport.gif)
+
+### Included sample report
+
+The repo also includes:
+
+- `Example-GuestFleetReport.html`
+
+so you can preview the report behaviour directly in a browser.
 
 ---
 
-## Suggested usage during a real incident
+## Help built into the scripts
 
-1. Run endpoint precheck
-2. Run Guest Ops validator
-3. Retry product-managed deploy in UI
-4. Run evidence collector
-5. Compare with known-good host
-6. Share diff/evidence with the relevant team (platform, firewall, security, support)
+Most scripts in the toolkit support:
 
-This sequence helps isolate the failing layer quickly and reduces random trial-and-error.
+- `-h`
+- `-Full`
+- `-Examples`
+
+Examples:
+
+```powershell
+.\Invoke-VcfOpsFleetGuestOps.ps1 -h
+.\Invoke-VcfOpsFleetGuestOps.ps1 -Full
+.\Invoke-VcfOpsFleetGuestOps.ps1 -Examples
+
+.\New-VcfOpsTelegrafHtmlReport.ps1 -h
+.\Save-VcfOpsTelegrafCredential.ps1 -Examples
+.\Test-VCenterGuestOpsForTelegraf.ps1 -Full
+```
 
 ---
 
-## Current platform notes
+## Typical troubleshooting workflow
 
-- `Test-VCenterGuestOpsForTelegraf.ps1`, `Test-VCenterGuestOpsFleetForTelegraf.ps1`, and `Test-VcfOpsTelegrafEndpoint.ps1` now support both Windows and Linux targets.
-- `Invoke-VcfOpsTelegrafFleetRunner.ps1` remains the older WinRM-oriented runner.
-- `Invoke-VcfOpsTelegrafFleetRunner-GuestOps.ps1` supports Windows and Linux targets through VMware Tools / Guest Operations.
-- `Collect-VcfOpsTelegrafDeployDiag.ps1` and the bootstrap probe remain Windows-oriented in this version.
+### Option A: single VM deep dive
+
+1. Run `Test-VCenterGuestOpsForTelegraf.ps1` against the affected VM
+2. Review the grouped validation summary
+3. If required, run `Test-VcfOpsTelegrafEndpoint.ps1` directly on the target
+4. If needed, run `Collect-VcfOpsTelegrafDeployDiag.ps1` on the affected endpoint
+
+### Option B: fleet validation and reporting
+
+1. Create credential files with `Save-VcfOpsTelegrafCredential.ps1` or prepare a CSV with plaintext credentials
+2. Build the target CSV
+3. Run `Invoke-VcfOpsFleetGuestOps.ps1`
+4. Generate the HTML report with `New-VcfOpsTelegrafHtmlReport.ps1`
+5. Use the dashboard to identify PASS, WARN, and FAIL systems quickly
 
 ---
+
+## Supportability note
+
+This toolkit is intended for **diagnostics and troubleshooting** of **product-managed Telegraf deployment**.
+
+It is **not** a replacement for the supported product-managed deployment workflow in VCF Operations / Aria Operations.
+
+The bootstrap probe and manual endpoint scripts are intended to help identify root cause. Once the issue is understood and fixed, the final deployment should still be performed through the supported product workflow.
+
+---
+
 ## License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This project is released under the **MIT License**.
 
+See `LICENSE` for details.
