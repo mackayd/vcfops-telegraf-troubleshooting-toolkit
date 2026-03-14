@@ -25,6 +25,7 @@ When a product-managed Telegraf deployment fails, the root cause is often not Te
 - **Endpoint-side execution controls** such as AV, EDR, policy, or sudo restrictions
 
 This toolkit gives you a repeatable way to validate those layers, capture evidence, and generate output that can be shared with platform, firewall, security, or support teams.
+[Open the example Guest Fleet report](https://mackayd.github.io/vcfops-telegraf-troubleshooting-toolkit/Example-GuestFleetReport.html)
 
 ![Toolkit workflow](Images/Telegraf-toolkit-workflow.png)
 
